@@ -1,272 +1,80 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Tasks</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-:root {
-  --bg:       #1a1a1a;
-  --bg2:      #222222;
-  --bg3:      #2a2a2a;
-  --bg4:      #333333;
-  --gold:     #d4a843;
-  --gold-dim: #9a7a2e;
-  --gold-pale:rgba(212,168,67,0.15);
-  --text:     #f0ece4;
-  --text2:    #b0a898;
-  --text3:    #706860;
-  --border:   rgba(212,168,67,0.2);
-  --border2:  rgba(212,168,67,0.4);
-}
-body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
-.app { max-width: 430px; margin: 0 auto; min-height: 100vh; padding-bottom: 60px; }
+// ===================================
+// MINI タスク → Google Calendar 自動登録
+// ===================================
 
-/* ヘッダー */
-.header { padding: 20px 20px 14px; position: sticky; top: 0; z-index: 10; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
-.header-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 600; color: var(--gold); letter-spacing: 0.04em; }
-.header-sub { font-size: 11px; color: var(--text3); letter-spacing: 0.08em; margin-top: 2px; }
-.sync-badge { font-size: 11px; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); color: var(--text2); display: flex; align-items: center; gap: 5px; letter-spacing: 0.03em; }
-.sync-badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text3); flex-shrink: 0; }
-.sync-badge.connected { color: var(--gold); border-color: var(--border2); }
-.sync-badge.connected .dot { background: var(--gold); }
-.sync-badge.error .dot { background: #e05555; }
-
-/* GAS設定バー */
-.setup-bar { background: rgba(212,168,67,0.07); border-bottom: 1px solid var(--border); padding: 10px 16px; display: flex; align-items: center; gap: 8px; }
-.setup-bar.hidden { display: none; }
-.setup-bar input { flex: 1; font-size: 13px; padding: 8px 12px; border: 1px solid var(--border2); border-radius: 8px; background: var(--bg3); color: var(--text); font-family: 'Inter', sans-serif; }
-.setup-bar input::placeholder { color: var(--text3); }
-.setup-bar input:focus { outline: none; border-color: var(--gold); }
-.setup-bar button { font-size: 13px; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--gold-dim); background: var(--gold-pale); color: var(--gold); cursor: pointer; font-family: 'Inter', sans-serif; white-space: nowrap; }
-
-/* 入力セクション */
-.input-section { margin: 16px; background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; padding: 18px; }
-
-.text-row { display: flex; gap: 8px; }
-.text-input { flex: 1; font-size: 15px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg3); color: var(--text); font-family: 'Inter', sans-serif; transition: border-color 0.2s; }
-.text-input::placeholder { color: var(--text3); }
-.text-input:focus { outline: none; border-color: var(--gold); background: var(--bg4); }
-.add-btn { padding: 12px 20px; border-radius: 10px; border: 1px solid var(--gold-dim); background: var(--gold-pale); color: var(--gold); font-size: 15px; font-weight: 500; cursor: pointer; white-space: nowrap; font-family: 'Inter', sans-serif; transition: all 0.15s; }
-.add-btn:active { opacity: 0.7; transform: scale(0.97); }
-
-/* クイック選択 */
-.quick-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
-.chip { font-size: 13px; padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; transition: all 0.15s; font-family: 'Inter', sans-serif; }
-.chip.active-date { border-color: var(--gold); background: var(--gold-pale); color: var(--gold); }
-.chip.active-high { border-color: rgba(224,85,85,0.5); background: rgba(224,85,85,0.12); color: #f07070; }
-.chip.active-med  { border-color: var(--border2); background: var(--gold-pale); color: var(--gold); }
-.chip.active-low  { border-color: rgba(82,183,136,0.4); background: rgba(82,183,136,0.1); color: #6ec9a0; }
-
-/* 区切り */
-.gold-line { height: 1px; background: linear-gradient(90deg, transparent, var(--gold-dim), transparent); margin: 4px 20px; opacity: 0.4; }
-
-/* セクションヘッダー */
-.section-header { padding: 10px 20px 6px; font-size: 11px; font-weight: 500; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; }
-
-/* タスクリスト */
-.task-list { padding: 0 16px; }
-.task-card { background: var(--bg2); border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 14px 16px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px; transition: border-color 0.2s; }
-.task-card:active { border-color: var(--border); }
-.task-card.done-card { opacity: 0.35; }
-
-.task-top { display: flex; align-items: flex-start; gap: 12px; }
-.check-circle { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--text3); background: transparent; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 13px; transition: all 0.15s; margin-top: 2px; color: transparent; }
-.check-circle.checked { background: var(--gold-pale); border-color: var(--gold); color: var(--gold); }
-
-.task-title { flex: 1; font-size: 15px; font-weight: 400; color: var(--text); line-height: 1.5; }
-.task-title.done-text { text-decoration: line-through; color: var(--text3); }
-.del-btn { font-size: 15px; color: var(--text3); cursor: pointer; padding: 2px 4px; line-height: 1; transition: color 0.15s; }
-.del-btn:active { color: #e05555; }
-
-.task-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-left: 34px; }
-.badge { font-size: 12px; padding: 3px 9px; border-radius: 6px; font-weight: 400; letter-spacing: 0.02em; border: 1px solid transparent; }
-.b-date { border-color: var(--border2); color: var(--gold); background: var(--gold-pale); }
-.b-high { border-color: rgba(224,85,85,0.3); color: #f07070; background: rgba(224,85,85,0.1); }
-.b-med  { border-color: rgba(255,255,255,0.2); color: var(--text); background: transparent; }
-.b-low  { border-color: rgba(82,183,136,0.3); color: #6ec9a0; background: rgba(82,183,136,0.08); }
-.b-cal  { border-color: rgba(82,183,136,0.3); color: #6ec9a0; background: rgba(82,183,136,0.08); }
-.b-cal-err { border-color: rgba(224,85,85,0.3); color: #f07070; background: rgba(224,85,85,0.1); }
-.b-cal-pending { border-color: rgba(255,255,255,0.08); color: var(--text3); background: transparent; }
-.retry-btn { font-size: 12px; padding: 3px 9px; border-radius: 6px; border: 1px solid rgba(224,85,85,0.3); background: rgba(224,85,85,0.1); color: #f07070; cursor: pointer; font-family: 'Inter', sans-serif; }
-
-/* 空表示 */
-.empty { text-align: center; padding: 48px 16px; color: var(--text3); font-size: 14px; line-height: 2; }
-.empty-mark { font-family: 'Cormorant Garamond', serif; font-size: 36px; color: var(--gold-dim); display: block; margin-bottom: 8px; opacity: 0.5; }
-
-/* トースト */
-.toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(14px); background: var(--bg3); border: 1px solid var(--border2); color: var(--text); font-size: 13px; padding: 10px 20px; border-radius: 10px; opacity: 0; transition: all 0.28s; pointer-events: none; z-index: 999; white-space: nowrap; max-width: 90vw; text-align: center; font-family: 'Inter', sans-serif; }
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-</style>
-</head>
-<body>
-
-<div class="app">
-
-  <div class="header">
-    <div>
-      <div class="header-title">Tasks</div>
-      <div class="header-sub">Google Calendar 連携</div>
-    </div>
-    <span class="sync-badge" id="sync-badge">
-      <span class="dot"></span>
-      <span id="sync-text">設定未完了</span>
-    </span>
-  </div>
-
-  <div class="setup-bar" id="setup-bar">
-    <input type="text" id="gas-url-input" placeholder="Google Apps Script の URL を貼り付け" />
-    <button onclick="saveGasUrl()">保存</button>
-  </div>
-
-  <div class="input-section">
-    <div class="text-row">
-      <input class="text-input" id="task-input" placeholder="例：明日14時 資料提出" />
-      <button class="add-btn" onclick="addTask()">追加</button>
-    </div>
-    <div class="quick-row">
-      <button class="chip" id="c-today" onclick="toggleDate('today')">今日</button>
-      <button class="chip" id="c-tomorrow" onclick="toggleDate('tomorrow')">明日</button>
-      <button class="chip" id="c-high" onclick="togglePriority('高')">高</button>
-      <button class="chip" id="c-med" onclick="togglePriority('中')">中</button>
-      <button class="chip" id="c-low" onclick="togglePriority('低')">低</button>
-    </div>
-  </div>
-
-  <div class="gold-line"></div>
-  <div class="section-header" id="section-header">Tasks</div>
-  <div class="task-list" id="task-list">
-    <div class="empty"><span class="empty-mark">✦</span>タスクがありません</div>
-  </div>
-
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script>
-let tasks = JSON.parse(localStorage.getItem('tasks_v2') || '[]');
-let nextId = parseInt(localStorage.getItem('nextId2') || '1');
-let gasUrl = localStorage.getItem('gasUrl') || '';
-let pendingDate = null;
-let pendingPriority = null;
-
-window.onload = () => { updateSetupBar(); render(); };
-
-function saveGasUrl() {
-  const v = document.getElementById('gas-url-input').value.trim();
-  if (!v.startsWith('https://script.google.com')) { showToast('正しいGAS URLを貼り付けてください'); return; }
-  gasUrl = v; localStorage.setItem('gasUrl', v);
-  updateSetupBar(); showToast('✦ Google Calendar連携が有効になりました');
-}
-function updateSetupBar() {
-  const bar = document.getElementById('setup-bar');
-  const badge = document.getElementById('sync-badge');
-  const txt = document.getElementById('sync-text');
-  if (gasUrl) { bar.classList.add('hidden'); badge.className = 'sync-badge connected'; txt.textContent = 'Calendar連携中'; }
-  else { bar.classList.remove('hidden'); badge.className = 'sync-badge error'; txt.textContent = '設定未完了'; }
-}
-
-function todayStr() { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
-function tomorrowStr() { const d = new Date(); d.setDate(d.getDate()+1); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
-function pad(n) { return String(n).padStart(2,'0'); }
-function fmtDate(iso) {
-  if (!iso) return null;
-  if (iso === todayStr()) return '今日';
-  if (iso === tomorrowStr()) return '明日';
-  const d = new Date(iso + 'T00:00:00');
-  return `${d.getMonth()+1}/${d.getDate()}`;
-}
-function parseNL(text) {
-  let title = text.trim(), date = pendingDate, priority = pendingPriority || '中', time = null;
-  ['今日','きょう','本日','今日中'].forEach(k => { if (title.includes(k)) { if (!date) date = todayStr(); title = title.replaceAll(k,'').trim(); } });
-  ['明日','あした','あす','明日中'].forEach(k => { if (title.includes(k)) { if (!date) date = tomorrowStr(); title = title.replaceAll(k,'').trim(); } });
-  const timeM = title.match(/([0-9０-９]{1,2})[時:]([0-9０-９]{0,2})/);
-  if (timeM) {
-    const h = s => s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0)-65248));
-    const hh = parseInt(h(timeM[1])), mm = timeM[2] ? parseInt(h(timeM[2])||'0') : 0;
-    time = `${pad(hh)}:${pad(mm)}`; if (!date) date = todayStr();
-    title = title.replace(timeM[0],'').trim();
-  }
-  if (/緊急|至急|重要|急ぎ/.test(title)) priority = '高';
-  title = title.replace(/[。、，\s]+$/,'').trim() || text.trim();
-  return { title, date, time, priority };
-}
-function toggleDate(d) {
-  const val = d === 'today' ? todayStr() : tomorrowStr();
-  pendingDate = pendingDate === val ? null : val;
-  document.getElementById('c-today').className = 'chip' + (pendingDate === todayStr() ? ' active-date' : '');
-  document.getElementById('c-tomorrow').className = 'chip' + (pendingDate === tomorrowStr() ? ' active-date' : '');
-}
-function togglePriority(p) {
-  pendingPriority = pendingPriority === p ? null : p;
-  document.getElementById('c-high').className = 'chip' + (pendingPriority === '高' ? ' active-high' : '');
-  document.getElementById('c-med').className  = 'chip' + (pendingPriority === '中' ? ' active-med'  : '');
-  document.getElementById('c-low').className  = 'chip' + (pendingPriority === '低' ? ' active-low'  : '');
-}
-async function addTask(rawText) {
-  const inp = document.getElementById('task-input');
-  const text = rawText || inp.value.trim();
-  if (!text) { showToast('タスク名を入力してください'); return; }
-  const parsed = parseNL(text);
-  const task = { id: nextId++, ...parsed, done: false, calStatus: gasUrl ? 'pending' : 'none', created: new Date().toISOString() };
-  tasks.unshift(task); save(); inp.value = ''; resetChips(); render();
-  showToast('✦ 追加しました');
-  if (gasUrl) await sendToCalendar(task);
-}
-async function sendToCalendar(task) {
-  updateTaskCal(task.id, 'sending');
+function doPost(e) {
   try {
-    const res = await fetch(gasUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ title: task.title, date: task.date||'', time: task.time||'', priority: task.priority, duration: 60 }) });
-    const json = await res.json();
-    if (json.status === 'ok') { updateTaskCal(task.id, 'ok'); showToast('✦ Calendarに登録しました'); }
-    else { updateTaskCal(task.id, 'error'); showToast('Calendar登録でエラーが出ました'); }
-  } catch(e) { updateTaskCal(task.id, 'error'); showToast('Calendar送信に失敗しました'); }
+    var data = JSON.parse(e.postData.contents);
+    var title    = data.title    || "（無題）";
+    var date     = data.date     || "";
+    var time     = data.time     || "";
+    var priority = data.priority || "中";
+    var duration = data.duration || 60; // 分
+
+    var calendar = CalendarApp.getDefaultCalendar();
+    var event;
+
+    if (date && time) {
+      // 日時あり → 時刻指定イベント
+      var startStr = date + "T" + time + ":00";
+      var start = new Date(startStr);
+      var end   = new Date(start.getTime() + duration * 60 * 1000);
+      event = calendar.createEvent(
+        "[" + priority + "] " + title,
+        start,
+        end,
+        { description: "タスクアプリから自動登録\n優先度: " + priority }
+      );
+    } else if (date) {
+      // 日付のみ → 終日イベント
+      var parts = date.split("-");
+      var allDay = new Date(
+        parseInt(parts[0]),
+        parseInt(parts[1]) - 1,
+        parseInt(parts[2])
+      );
+      event = calendar.createAllDayEvent(
+        "[" + priority + "] " + title,
+        allDay,
+        { description: "タスクアプリから自動登録\n優先度: " + priority }
+      );
+    } else {
+      // 日付なし → 今日の終日イベント
+      event = calendar.createAllDayEvent(
+        "[" + priority + "] " + title,
+        new Date(),
+        { description: "タスクアプリから自動登録\n優先度: " + priority }
+      );
+    }
+
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        status: "ok",
+        eventId: event.getId(),
+        title: event.getTitle()
+      }))
+      .setMimeType(ContentService.MimeType.JSON)
+      .setHeader ? 
+      addCorsHeaders(ContentService.createTextOutput(JSON.stringify({
+        status: "ok",
+        eventId: event.getId(),
+        title: event.getTitle()
+      })).setMimeType(ContentService.MimeType.JSON)) :
+      ContentService.createTextOutput(JSON.stringify({
+        status: "ok",
+        eventId: event.getId(),
+        title: event.getTitle()
+      })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch(err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }
-function updateTaskCal(id, s) { const t = tasks.find(t => t.id === id); if (t) { t.calStatus = s; save(); render(); } }
-function toggleDone(id) { const t = tasks.find(t => t.id === id); if (t) { t.done = !t.done; save(); render(); } }
-function deleteTask(id) { tasks = tasks.filter(t => t.id !== id); save(); render(); showToast('削除しました'); }
-function save() { localStorage.setItem('tasks_v2', JSON.stringify(tasks)); localStorage.setItem('nextId2', String(nextId)); }
-function render() {
-  const list = document.getElementById('task-list');
-  const hdr = document.getElementById('section-header');
-  const todo = tasks.filter(t => !t.done), done = tasks.filter(t => t.done);
-  hdr.textContent = todo.length > 0 ? `Tasks — ${todo.length} remaining` : 'Tasks — all done';
-  if (!tasks.length) { list.innerHTML = '<div class="empty"><span class="empty-mark">✦</span>タスクがありません</div>'; return; }
-  const calBadge = t => {
-    if (t.calStatus === 'ok') return '<span class="badge b-cal">✦ Cal済</span>';
-    if (t.calStatus === 'sending') return '<span class="badge b-cal-pending">送信中…</span>';
-    if (t.calStatus === 'error') return `<button class="retry-btn" onclick="retryCal(${t.id})">再送信</button>`;
-    return '';
-  };
-  const pClass = p => ({高:'b-high',中:'b-med',低:'b-low'}[p]||'b-med');
-  const card = t => `
-    <div class="task-card${t.done?' done-card':''}">
-      <div class="task-top">
-        <button class="check-circle${t.done?' checked':''}" onclick="toggleDone(${t.id})">${t.done?'✓':''}</button>
-        <span class="task-title${t.done?' done-text':''}">${t.title}</span>
-        <span class="del-btn" onclick="deleteTask(${t.id})">✕</span>
-      </div>
-      <div class="task-meta">
-        ${t.date?`<span class="badge b-date">${fmtDate(t.date)}${t.time?' '+t.time:''}</span>`:''}
-        <span class="badge ${pClass(t.priority)}">${t.priority}</span>
-        ${calBadge(t)}
-      </div>
-    </div>`;
-  list.innerHTML = [...todo, ...done].map(card).join('');
+
+function doGet(e) {
+  return ContentService
+    .createTextOutput(JSON.stringify({ status: "ok", message: "タスクカレンダー連携 稼働中" }))
+    .setMimeType(ContentService.MimeType.JSON);
 }
-async function retryCal(id) { const t = tasks.find(t => t.id === id); if (t && gasUrl) await sendToCalendar(t); }
-function resetChips() {
-  pendingDate = null; pendingPriority = null;
-  ['c-today','c-tomorrow','c-high','c-med','c-low'].forEach(id => document.getElementById(id).className = 'chip');
-}
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  clearTimeout(t._timer); t._timer = setTimeout(() => t.classList.remove('show'), 2600);
-}
-document.getElementById('task-input').addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
-</script>
-</body>
-</html>
