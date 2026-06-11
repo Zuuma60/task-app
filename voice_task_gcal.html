@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>タスク → Google Calendar</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif; background: #f5f5f7; min-height: 100vh; }
+
+.app { max-width: 430px; margin: 0 auto; background: #f5f5f7; min-height: 100vh; padding-bottom: 80px; }
+
+/* ヘッダー */
+.header { background: #fff; padding: 16px 16px 12px; border-bottom: 1px solid #e5e5ea; position: sticky; top: 0; z-index: 10; }
+.header-top { display: flex; align-items: center; justify-content: space-between; }
+.header h1 { font-size: 20px; font-weight: 600; color: #1c1c1e; }
+.sync-badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; background: #e8f5e9; color: #2e7d32; font-weight: 500; }
+.sync-badge.error { background: #ffebee; color: #c62828; }
+.sync-badge.pending { background: #fff8e1; color: #e65100; }
+
+/* GAS URL設定 */
+.setup-bar { background: #fff3cd; border-bottom: 1px solid #ffc107; padding: 10px 16px; display: flex; align-items: center; gap: 8px; }
+.setup-bar.hidden { display: none; }
+.setup-bar input { flex: 1; font-size: 12px; padding: 6px 8px; border: 1px solid #ffc107; border-radius: 6px; background: #fff; color: #333; }
+.setup-bar button { font-size: 12px; padding: 6px 10px; border-radius: 6px; border: none; background: #ffc107; color: #333; font-weight: 600; cursor: pointer; white-space: nowrap; }
+
+/* 入力エリア */
+.input-section { background: #fff; margin: 12px; border-radius: 16px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+/* マイクボタン */
+.mic-area { display: flex; flex-direction: column; align-items: center; padding: 8px 0 16px; }
+.mic-btn { width: 80px; height: 80px; border-radius: 50%; border: none; background: #007aff; color: #fff; font-size: 32px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,122,255,0.35); }
+.mic-btn:active { transform: scale(0.95); }
+.mic-btn.recording { background: #ff3b30; box-shadow: 0 4px 20px rgba(255,59,48,0.5); animation: pulse 1s infinite; }
+.mic-btn.loading { background: #8e8e93; box-shadow: none; }
+.mic-label { margin-top: 10px; font-size: 14px; color: #8e8e93; font-weight: 500; }
+.interim-text { font-size: 15px; color: #1c1c1e; text-align: center; margin-top: 8px; min-height: 22px; font-style: italic; }
+
+@keyframes pulse { 0%,100%{box-shadow: 0 4px 20px rgba(255,59,48,0.5)} 50%{box-shadow: 0 4px 30px rgba(255,59,48,0.8)} }
+
+/* テキスト入力 */
+.or-divider { text-align: center; font-size: 12px; color: #8e8e93; margin: 8px 0; }
+.text-row { display: flex; gap: 8px; }
+.text-input { flex: 1; font-size: 15px; padding: 10px 12px; border: 1px solid #e5e5ea; border-radius: 10px; color: #1c1c1e; background: #f5f5f7; }
+.text-input:focus { outline: none; border-color: #007aff; background: #fff; }
+.add-btn { padding: 10px 16px; border-radius: 10px; border: none; background: #007aff; color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.add-btn:active { opacity: 0.8; }
+
+/* クイック選択 */
+.quick-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+.chip { font-size: 13px; padding: 6px 12px; border-radius: 20px; border: 1px solid #e5e5ea; background: #f5f5f7; color: #3a3a3c; cursor: pointer; transition: all 0.15s; }
+.chip.active-date { background: #e8f0fe; border-color: #007aff; color: #007aff; }
+.chip.active-high { background: #ffebee; border-color: #ff3b30; color: #ff3b30; }
+.chip.active-med  { background: #fff8e1; border-color: #ff9500; color: #e65100; }
+.chip.active-low  { background: #e8f5e9; border-color: #34c759; color: #1b5e20; }
+
+/* タスクリスト */
+.section-header { padding: 12px 16px 6px; font-size: 13px; font-weight: 600; color: #8e8e93; text-transform: uppercase; letter-spacing: 0.5px; }
+.task-list { padding: 0 12px; }
+.task-card { background: #fff; border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); display: flex; flex-direction: column; gap: 8px; }
+.task-card.done-card { opacity: 0.5; }
+.task-top { display: flex; align-items: flex-start; gap: 10px; }
+.check-circle { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #c7c7cc; background: transparent; cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 14px; transition: all 0.15s; margin-top: 1px; }
+.check-circle.checked { background: #34c759; border-color: #34c759; color: #fff; }
+.task-title { flex: 1; font-size: 15px; font-weight: 500; color: #1c1c1e; line-height: 1.4; }
+.task-title.done-text { text-decoration: line-through; color: #8e8e93; }
+.del-btn { font-size: 18px; color: #c7c7cc; cursor: pointer; padding: 0 2px; line-height: 1; }
+.task-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-left: 34px; }
+.badge { font-size: 12px; padding: 3px 8px; border-radius: 6px; font-weight: 500; }
+.b-date { background: #e8f0fe; color: #1a56db; }
+.b-high { background: #ffebee; color: #c62828; }
+.b-med  { background: #fff8e1; color: #e65100; }
+.b-low  { background: #e8f5e9; color: #2e7d32; }
+.b-cal  { background: #e8f5e9; color: #2e7d32; }
+.b-cal-err { background: #ffebee; color: #c62828; }
+.b-cal-pending { background: #fff8e1; color: #e65100; }
+
+/* トースト */
+.toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px); background: rgba(0,0,0,0.82); color: #fff; font-size: 14px; padding: 12px 20px; border-radius: 12px; opacity: 0; transition: all 0.3s; pointer-events: none; z-index: 999; white-space: nowrap; max-width: 90vw; text-align: center; }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.empty { text-align: center; padding: 40px 16px; color: #8e8e93; font-size: 15px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="header">
+    <div class="header-top">
+      <h1>📋 タスク</h1>
+      <span class="sync-badge" id="sync-badge">● 設定未完了</span>
+    </div>
+  </div>
+
+  <!-- GAS URL設定バー -->
+  <div class="setup-bar" id="setup-bar">
+    <input type="text" id="gas-url-input" placeholder="Google Apps Script の URL をここに貼り付け" />
+    <button onclick="saveGasUrl()">保存</button>
+  </div>
+
+  <!-- 入力セクション -->
+  <div class="input-section">
+    <div class="mic-area">
+      <button class="mic-btn" id="mic-btn" onclick="toggleMic()">🎤</button>
+      <div class="mic-label" id="mic-label">タップして話す</div>
+      <div class="interim-text" id="interim-text"></div>
+    </div>
+
+    <div class="or-divider">— またはテキストで入力 —</div>
+
+    <div class="text-row">
+      <input class="text-input" id="task-input" placeholder="例：明日14時 資料提出" />
+      <button class="add-btn" onclick="addTask()">追加</button>
+    </div>
+
+    <div class="quick-row">
+      <button class="chip" id="c-today" onclick="toggleDate('today')">📅 今日</button>
+      <button class="chip" id="c-tomorrow" onclick="toggleDate('tomorrow')">📅 明日</button>
+      <button class="chip" id="c-high" onclick="togglePriority('高')">🔴 高</button>
+      <button class="chip" id="c-med" onclick="togglePriority('中')">🟡 中</button>
+      <button class="chip" id="c-low" onclick="togglePriority('低')">🟢 低</button>
+    </div>
+  </div>
+
+  <div class="section-header" id="section-header">タスク一覧</div>
+  <div class="task-list" id="task-list">
+    <div class="empty">まだタスクがありません<br>上のマイクをタップして追加しましょう</div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ======== 状態 ========
+let tasks = JSON.parse(localStorage.getItem('tasks_v1') || '[]');
+let nextId = parseInt(localStorage.getItem('nextId') || '1');
+let gasUrl = localStorage.getItem('gasUrl') || '';
+let pendingDate = null;
+let pendingPriority = null;
+let recognizing = false;
+let recognition = null;
+
+// ======== 初期化 ========
+window.onload = () => {
+  updateSetupBar();
+  render();
+};
+
+function saveGasUrl() {
+  const v = document.getElementById('gas-url-input').value.trim();
+  if (!v.startsWith('https://script.google.com')) {
+    showToast('正しいGAS URLを貼り付けてください');
+    return;
+  }
+  gasUrl = v;
+  localStorage.setItem('gasUrl', v);
+  updateSetupBar();
+  showToast('✅ Google Calendar連携が有効になりました！');
+}
+
+function updateSetupBar() {
+  const bar = document.getElementById('setup-bar');
+  const badge = document.getElementById('sync-badge');
+  if (gasUrl) {
+    bar.classList.add('hidden');
+    badge.textContent = '● Calendar連携中';
+    badge.className = 'sync-badge';
+  } else {
+    bar.classList.remove('hidden');
+    badge.textContent = '● 設定未完了';
+    badge.className = 'sync-badge error';
+  }
+}
+
+// ======== 日付ユーティリティ ========
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function tomorrowStr() {
+  const d = new Date();
+  d.setDate(d.getDate()+1);
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+function pad(n) { return String(n).padStart(2,'0'); }
+function fmtDate(iso) {
+  if (!iso) return null;
+  if (iso === todayStr()) return '今日';
+  if (iso === tomorrowStr()) return '明日';
+  const d = new Date(iso + 'T00:00:00');
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+
+// ======== 自然言語解析 ========
+function parseNL(text) {
+  let title = text.trim();
+  let date = pendingDate;
+  let priority = pendingPriority || '中';
+  let time = null;
+
+  [['今日','きょう','本日'], [todayStr()]].forEach((_, i) => {});
+  const todayKW = ['今日','きょう','本日','今日中'];
+  const tomorrowKW = ['明日','あした','あす','明日中'];
+  todayKW.forEach(k => { if (title.includes(k)) { if (!date) date = todayStr(); title = title.replaceAll(k,'').trim(); } });
+  tomorrowKW.forEach(k => { if (title.includes(k)) { if (!date) date = tomorrowStr(); title = title.replaceAll(k,'').trim(); } });
+
+  const timeM = title.match(/([0-9０-９]{1,2})[時:]([0-9０-９]{0,2})/);
+  if (timeM) {
+    const toHalf = s => s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0)-65248));
+    const h = parseInt(toHalf(timeM[1]));
+    const m = timeM[2] ? parseInt(toHalf(timeM[2]) || '0') : 0;
+    time = `${pad(h)}:${pad(m)}`;
+    if (!date) date = todayStr();
+    title = title.replace(timeM[0],'').trim();
+  }
+
+  if (/緊急|至急|重要|急ぎ/.test(title)) priority = '高';
+  title = title.replace(/[。、，\s]+$/,'').trim() || text.trim();
+
+  return { title, date, time, priority };
+}
+
+// ======== クイック選択 ========
+function toggleDate(d) {
+  const val = d === 'today' ? todayStr() : tomorrowStr();
+  pendingDate = pendingDate === val ? null : val;
+  document.getElementById('c-today').className = 'chip' + (pendingDate === todayStr() ? ' active-date' : '');
+  document.getElementById('c-tomorrow').className = 'chip' + (pendingDate === tomorrowStr() ? ' active-date' : '');
+}
+function togglePriority(p) {
+  pendingPriority = pendingPriority === p ? null : p;
+  document.getElementById('c-high').className = 'chip' + (pendingPriority === '高' ? ' active-high' : '');
+  document.getElementById('c-med').className  = 'chip' + (pendingPriority === '中' ? ' active-med'  : '');
+  document.getElementById('c-low').className  = 'chip' + (pendingPriority === '低' ? ' active-low'  : '');
+}
+
+// ======== タスク追加 ========
+async function addTask(rawText) {
+  const inp = document.getElementById('task-input');
+  const text = rawText || inp.value.trim();
+  if (!text) { showToast('タスク名を入力してください'); return; }
+
+  const parsed = parseNL(text);
+  const task = {
+    id: nextId++,
+    ...parsed,
+    done: false,
+    calStatus: 'pending', // pending / ok / error / none
+    created: new Date().toISOString()
+  };
+
+  tasks.unshift(task);
+  save();
+  inp.value = '';
+  resetChips();
+  render();
+  showToast(`「${parsed.title}」を追加しました`);
+
+  // Google Calendarに送信
+  if (gasUrl) {
+    await sendToCalendar(task);
+  } else {
+    task.calStatus = 'none';
+    save(); render();
+  }
+}
+
+// ======== Google Calendar 送信 ========
+async function sendToCalendar(task) {
+  updateTaskCal(task.id, 'sending');
+
+  try {
+    const res = await fetch(gasUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({
+        title:    task.title,
+        date:     task.date    || '',
+        time:     task.time    || '',
+        priority: task.priority,
+        duration: 60
+      })
+    });
+    const json = await res.json();
+    if (json.status === 'ok') {
+      updateTaskCal(task.id, 'ok');
+      showToast('✅ Google Calendarに登録しました！');
+    } else {
+      updateTaskCal(task.id, 'error');
+      showToast('⚠️ Calendar登録でエラーが出ました');
+    }
+  } catch(e) {
+    updateTaskCal(task.id, 'error');
+    showToast('⚠️ Calendar送信に失敗しました');
+  }
+}
+
+function updateTaskCal(id, status) {
+  const t = tasks.find(t => t.id === id);
+  if (t) { t.calStatus = status; save(); render(); }
+}
+
+// ======== 完了 / 削除 ========
+function toggleDone(id) {
+  const t = tasks.find(t => t.id === id);
+  if (t) { t.done = !t.done; save(); render(); }
+}
+function deleteTask(id) {
+  tasks = tasks.filter(t => t.id !== id);
+  save(); render();
+  showToast('削除しました');
+}
+
+// ======== 保存 ========
+function save() {
+  localStorage.setItem('tasks_v1', JSON.stringify(tasks));
+  localStorage.setItem('nextId', String(nextId));
+}
+
+// ======== 表示 ========
+function render() {
+  const list = document.getElementById('task-list');
+  const hdr = document.getElementById('section-header');
+  const todo = tasks.filter(t => !t.done);
+  const done = tasks.filter(t => t.done);
+  hdr.textContent = `タスク一覧 （未完了 ${todo.length}件）`;
+
+  if (!tasks.length) {
+    list.innerHTML = '<div class="empty">まだタスクがありません<br>上のマイクをタップして追加しましょう</div>';
+    return;
+  }
+
+  const calBadge = (t) => {
+    if (t.calStatus === 'ok') return '<span class="badge b-cal">📅 Calendar済</span>';
+    if (t.calStatus === 'sending') return '<span class="badge b-cal-pending">⏳ 送信中…</span>';
+    if (t.calStatus === 'error') return '<span class="badge b-cal-err">⚠️ Cal失敗</span>';
+    if (t.calStatus === 'none') return '';
+    return '<span class="badge b-cal-pending">📅 未送信</span>';
+  };
+
+  const pClass = p => ({高:'b-high',中:'b-med',低:'b-low'}[p] || 'b-med');
+
+  const card = t => `
+    <div class="task-card${t.done?' done-card':''}" id="card-${t.id}">
+      <div class="task-top">
+        <button class="check-circle${t.done?' checked':''}" onclick="toggleDone(${t.id})">${t.done?'✓':''}</button>
+        <span class="task-title${t.done?' done-text':''}">${t.title}</span>
+        <span class="del-btn" onclick="deleteTask(${t.id})">✕</span>
+      </div>
+      <div class="task-meta">
+        ${t.date ? `<span class="badge b-date">${fmtDate(t.date)}${t.time?' '+t.time:''}</span>` : ''}
+        <span class="badge ${pClass(t.priority)}">${t.priority}</span>
+        ${calBadge(t)}
+        ${t.calStatus === 'error' ? `<button style="font-size:12px;padding:3px 8px;border-radius:6px;border:1px solid #ffcdd2;background:#ffebee;color:#c62828;cursor:pointer" onclick="retryCal(${t.id})">再送信</button>` : ''}
+      </div>
+    </div>`;
+
+  list.innerHTML = [...todo, ...done].map(card).join('');
+}
+
+async function retryCal(id) {
+  const t = tasks.find(t => t.id === id);
+  if (t && gasUrl) await sendToCalendar(t);
+}
+
+// ======== チップリセット ========
+function resetChips() {
+  pendingDate = null; pendingPriority = null;
+  ['c-today','c-tomorrow','c-high','c-med','c-low'].forEach(id => {
+    document.getElementById(id).className = 'chip';
+  });
+}
+
+// ======== 音声入力 ========
+function toggleMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { showToast('このブラウザは音声入力非対応です（Chromeを使ってください）'); return; }
+
+  if (recognizing) { recognition.stop(); return; }
+
+  recognition = new SR();
+  recognition.lang = 'ja-JP';
+  recognition.continuous = false;
+  recognition.interimResults = true;
+
+  const btn = document.getElementById('mic-btn');
+  const lbl = document.getElementById('mic-label');
+  const interim = document.getElementById('interim-text');
+
+  recognition.onstart = () => {
+    recognizing = true;
+    btn.className = 'mic-btn recording';
+    btn.textContent = '⏹';
+    lbl.textContent = '話しかけてください…';
+    interim.textContent = '';
+  };
+
+  recognition.onresult = (e) => {
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        const transcript = e.results[i][0].transcript;
+        interim.textContent = '';
+        addTask(transcript);
+      } else {
+        interim.textContent = e.results[i][0].transcript;
+      }
+    }
+  };
+
+  recognition.onerror = (ev) => {
+    const msg = ev.error === 'not-allowed' ? 'マイクのアクセスを許可してください' : '音声認識エラー: ' + ev.error;
+    showToast(msg);
+    stopMic();
+  };
+
+  recognition.onend = () => stopMic();
+  recognition.start();
+}
+
+function stopMic() {
+  recognizing = false;
+  const btn = document.getElementById('mic-btn');
+  btn.className = 'mic-btn';
+  btn.textContent = '🎤';
+  document.getElementById('mic-label').textContent = 'タップして話す';
+  document.getElementById('interim-text').textContent = '';
+}
+
+// ======== トースト ========
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+document.getElementById('task-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addTask();
+});
+</script>
+
+</body>
+</html>
