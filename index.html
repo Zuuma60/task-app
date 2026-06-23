@@ -656,13 +656,17 @@ async function analyzePhoto() {
       body: JSON.stringify({ contents:[{parts:[{text:prompt},{inline_data:{mime_type:currentPhotoMime,data:currentPhotoBase64}}]}] })
     });
     const json = await res.json();
+    if (json.error) {
+      throw new Error(json.error.message || json.error.status || 'API error');
+    }
     let textOut = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
     textOut = textOut.replace(/```json|```/g,'').trim();
     showPhotoResult(JSON.parse(textOut));
   } catch(e) {
     document.getElementById('photo-loading-area').style.display = 'none';
     document.getElementById('photo-preview-area').style.display = 'block';
-    showToast('解析に失敗しました');
+    showToast('エラー: ' + (e.message || '解析に失敗しました'));
+    console.error('Gemini error:', e);
   }
 }
 function showPhotoResult(p) {
